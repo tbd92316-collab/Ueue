@@ -34,15 +34,15 @@ jobs:
 
     - name: Create gradle.properties (Fix AndroidX Error)
       run: |
-        cat << 'EOF' > gradle.properties
+        cat << 'PROP_EOF' > gradle.properties
         android.useAndroidX=true
         android.enableJetifier=true
         org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-        EOF
+        PROP_EOF
 
     - name: Create Base Project Build Setup
       run: |
-        cat << 'EOF' > settings.gradle
+        cat << 'SETTINGS_EOF' > settings.gradle
         pluginManagement {
             repositories {
                 google()
@@ -59,11 +59,11 @@ jobs:
         }
         rootProject.name = "AI Ultra Camera"
         include ':app'
-        EOF
+        SETTINGS_EOF
 
     - name: Create Root build.gradle
       run: |
-        cat << 'EOF' > build.gradle
+        cat << 'BUILD_EOF' > build.gradle
         buildscript {
             repositories {
                 google()
@@ -76,11 +76,11 @@ jobs:
         plugins {
             id 'com.android.application' version '8.1.4' apply false
         }
-        EOF
+        BUILD_EOF
 
     - name: Create App build.gradle
       run: |
-        cat << 'EOF' > app/build.gradle
+        cat << 'APP_EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
         }
@@ -113,11 +113,11 @@ jobs:
             implementation 'androidx.appcompat:appcompat:1.6.1'
             implementation 'com.google.android.material:material:1.8.0'
         }
-        EOF
+        APP_EOF
 
     - name: Create AndroidManifest.xml
       run: |
-        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        cat << 'XML_EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/apk/res/android"
             package="com.ai.ultracamera">
@@ -157,11 +157,11 @@ jobs:
                 </activity>
             </application>
         </manifest>
-        EOF
+        XML_EOF
 
     - name: Create activity_main.xml Layout
       run: |
-        cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+        cat << 'LAYOUT_EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <RelativeLayout xmlns:android="http://schemas.android.com/apk/apk/res/android"
             android:layout_width="match_parent"
@@ -172,11 +172,11 @@ jobs:
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
         </RelativeLayout>
-        EOF
+        LAYOUT_EOF
 
     - name: Create MainActivity.java
       run: |
-        cat << 'EOF' > app/src/main/java/com/ai/ultracamera/MainActivity.java
+        cat << 'JAVA_EOF' > app/src/main/java/com/ai/ultracamera/MainActivity.java
         package com.ai.ultracamera;
 
         import android.Manifest;
@@ -253,11 +253,11 @@ jobs:
                 }
             }
         }
-        EOF
+        JAVA_EOF
 
     - name: Injection HTML Assets Camera App
       run: |
-        cat << 'EOF' > app/src/main/assets/index.html
+        cat << 'HTML_EOF' > app/src/main/assets/index.html
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -416,7 +416,7 @@ jobs:
         </script>
         </body>
         </html>
-        EOF
+        HTML_EOF
 
     - name: Setup Gradle Environment Wrapper
       uses: gradle/actions/setup-gradle@v3
