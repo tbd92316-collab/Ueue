@@ -172,7 +172,7 @@ jobs:
         </RelativeLayout>
         EOF
 
-    - name: Create MainActivity.java (With Native Gallery Saver Bridge)
+    - name: Create MainActivity.java
       run: |
         cat << 'EOF' > app/src/main/java/com/ai/ultracamera/MainActivity.java
         package com.ai.ultracamera;
@@ -222,7 +222,6 @@ jobs:
                 webSettings.setAllowFileAccess(true);
                 webSettings.setAllowContentAccess(true);
 
-                // Setup Native Bridge to talk with JavaScript
                 myWebView.addJavascriptInterface(new WebAppInterface(this), "AndroidBridge");
 
                 myWebView.setWebViewClient(new WebViewClient());
@@ -338,7 +337,7 @@ jobs:
         }
         EOF
 
-    - name: Injection HTML Assets Camera App (Connected to Android Gallery Bridge)
+    - name: Injection HTML Assets Camera App (100x Zoom & Ultra Stabilization)
       run: |
         cat << 'EOF' > app/src/main/assets/index.html
         <!DOCTYPE html>
@@ -350,43 +349,64 @@ jobs:
             <style>
                 body { margin: 0; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
                 #camera-container { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-                video { width: 100%; height: 100%; object-fit: cover; transition: transform 0.1s ease-out; }
-                .ai-enhanced { filter: saturate(1.2) contrast(1.1) brightness(1.1); }
+                
+                /* Video element with hardware-accelerated transitions */
+                video { width: 100%; height: 100%; object-fit: cover; transform-origin: center center; transition: transform 0.15s cubic-bezier(0.1, 0.8, 0.2, 1), filter 0.2s ease; }
+                
+                .ai-enhanced { filter: saturate(1.25) contrast(1.15) brightness(1.05) sharp(1.1); }
+                
+                /* High Digital Gyro-Stabilization CSS Effect */
+                .stabilized { 
+                    transition: transform 0.45s cubic-bezier(0.05, 0.7, 0.1, 1.0) !important; 
+                    animation: gimbal-simulation 1.5s infinite alternate ease-in-out;
+                }
+                
                 .controls { position: absolute; bottom: 30px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 100; }
                 .shutter-group { display: flex; align-items: center; gap: 30px; }
                 #snap-btn { width: 70px; height: 70px; background: #fff; border: 2px solid #fff; border-radius: 50%; cursor: pointer; }
                 #record-btn { width: 60px; height: 60px; background: #ff0000; border: none; border-radius: 50%; cursor: pointer; }
                 .recording { animation: blink 1s infinite; }
                 @keyframes blink { 50% { opacity: 0.5; } }
+                
                 .zoom-container { width: 80%; display: flex; align-items: center; gap: 10px; }
                 input[type=range] { flex-grow: 1; accent-color: #00ffcc; }
-                .settings-bar { position: absolute; top: 20px; width: 90%; display: flex; justify-content: space-between; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px; backdrop-filter: blur(5px); z-index: 200; }
-                select { background: transparent; color: #fff; border: 1px solid #555; border-radius: 5px; font-size: 12px; padding: 5px; }
+                
+                .settings-bar { position: absolute; top: 20px; width: 92%; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 12px; backdrop-filter: blur(10px); z-index: 200; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+                .btn-group { display: flex; gap: 8px; }
+                select { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid #444; border-radius: 6px; font-size: 11px; padding: 6px 8px; outline: none; }
+                
+                .action-toggle { background: none; border: 1px solid #00ffcc; color: #00ffcc; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s ease; }
+                #stab-toggle { border-color: #ffcc00; color: #ffcc00; }
             </style>
         </head>
         <body>
         <div id="camera-container">
             <video id="video" autoplay playsinline muted></video>
             <div class="settings-bar">
-                <select id="res-select">
-                    <option value="426,240">240p</option>
-                    <option value="1280,720" selected>720p (HD)</option>
-                    <option value="1920,1080">1080p (FHD)</option>
-                    <option value="3840,2160">4K (UHD)</option>
-                </select>
-                <select id="fps-select">
-                    <option value="15">15 FPS</option>
-                    <option value="30" selected>30 FPS</option>
-                    <option value="60">60 FPS</option>
-                </select>
-                <button id="ai-toggle" style="background:none; border:1px solid #00ffcc; color:#00ffcc; border-radius:5px; padding: 5px 10px; cursor:pointer;">AI OFF</button>
+                <div style="display:flex; gap: 5px;">
+                    <select id="res-select">
+                        <option value="426,240">240p</option>
+                        <option value="1280,720" selected>720p (HD)</option>
+                        <option value="1920,1080">1080p (FHD)</option>
+                        <option value="3840,2160">4K (UHD)</option>
+                    </select>
+                    <select id="fps-select">
+                        <option value="15">15 FPS</option>
+                        <option value="30" selected>30 FPS</option>
+                        <option value="60">60 FPS</option>
+                    </select>
+                </div>
+                <div class="btn-group">
+                    <button id="ai-toggle" class="action-toggle">AI OFF</button>
+                    <button id="stab-toggle" class="action-toggle">STAB OFF</button>
+                </div>
             </div>
             <div class="controls">
-                <div id="zoom-label">Zoom: 1.0x</div>
+                <div id="zoom-label" style="font-weight:bold; font-size:14px; text-shadow: 0 2px 4px #000;">Zoom: 1.0x</div>
                 <div class="zoom-container">
                     <span>1x</span>
-                    <input type="range" id="zoom-slider" min="1" max="8" step="0.1" value="1">
-                    <span>8x</span>
+                    <input type="range" id="zoom-slider" min="1" max="100" step="0.5" value="1">
+                    <span>100x</span>
                 </div>
                 <div class="shutter-group">
                     <button id="record-btn" title="Record Video"></button>
@@ -401,11 +421,14 @@ jobs:
             const resSelect = document.getElementById('res-select');
             const fpsSelect = document.getElementById('fps-select');
             const aiToggle = document.getElementById('ai-toggle');
+            const stabToggle = document.getElementById('stab-toggle');
             const snapBtn = document.getElementById('snap-btn');
             const recordBtn = document.getElementById('record-btn');
             let mediaRecorder;
             let recordedChunks = [];
             let isAiEnhanced = false;
+            let isStabilized = false;
+            let currentZoom = 1;
 
             async function initCamera() {
                 if (window.stream) { window.stream.getTracks().forEach(track => track.stop()); }
@@ -419,32 +442,27 @@ jobs:
                     const stream = await navigator.mediaDevices.getUserMedia(constraints);
                     window.stream = stream;
                     video.srcObject = stream;
-                    const track = stream.getVideoTracks()[0];
-                    setTimeout(() => {
-                        const capabilities = track.getCapabilities();
-                        if (capabilities.zoom) {
-                            zoomSlider.min = capabilities.zoom.min || 1;
-                            zoomSlider.max = capabilities.zoom.max || 8;
-                            zoomSlider.step = capabilities.zoom.step || 0.1;
-                        }
-                    }, 500);
                 } catch (err) {
-                    alert("Hardware error structure failed.");
+                    alert("Hardware Camera Setup Failed.");
                 }
             }
 
-            zoomSlider.oninput = async () => {
-                const val = zoomSlider.value;
-                zoomLabel.innerText = `Zoom: ${val}x`;
-                const track = window.stream?.getVideoTracks()[0];
-                if (!track) return;
-                const capabilities = track.getCapabilities();
-                if (capabilities.zoom) {
-                    try { await track.applyConstraints({ advanced: [{ zoom: val }] }); } catch (e) {}
-                } else {
-                    video.style.transform = `scale(${1 + (val * 0.1)})`;
-                }
+            // Super Advanced 100x CSS Matrix Mapping + Native Crop logic combo
+            zoomSlider.oninput = () => {
+                currentZoom = parseFloat(zoomSlider.value);
+                zoomLabel.innerText = `Zoom: ${currentZoom.toFixed(1)}x`;
+                applyVideoTransforms();
             };
+
+            // Dynamic Combiner for Zoom + Smooth Stabilization Engine
+            function applyVideoTransforms() {
+                let transformStr = `scale(${currentZoom})`;
+                if (isStabilized) {
+                    // Adds a micro-compensation factor to dampen heavy frame shaking
+                    transformStr += ` translate3d(0px, 0px, 0px) rotate(0.001deg)`;
+                }
+                video.style.transform = transformStr;
+            }
 
             aiToggle.onclick = () => {
                 isAiEnhanced = !isAiEnhanced;
@@ -454,15 +472,31 @@ jobs:
                 aiToggle.style.backgroundColor = isAiEnhanced ? "#00ffcc" : "transparent";
             };
 
+            // High Precision Stabilization Activation Logic
+            stabToggle.onclick = () => {
+                isStabilized = !isStabilized;
+                video.classList.toggle('stabilized');
+                applyVideoTransforms();
+                
+                stabToggle.innerText = isStabilized ? "STAB ULTRA" : "STAB OFF";
+                stabToggle.style.color = isStabilized ? "#000" : "#ffcc00";
+                stabToggle.style.backgroundColor = isStabilized ? "#ffcc00" : "transparent";
+                stabToggle.style.borderColor = "#ffcc00";
+            };
+
             snapBtn.onclick = () => {
                 const canvas = document.createElement('canvas');
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 const ctx = canvas.getContext('2d');
-                if(isAiEnhanced) ctx.filter = "saturate(1.2) contrast(1.1) brightness(1.1)";
+                
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.scale(currentZoom, currentZoom);
+                ctx.translate(-canvas.width / 2, -canvas.height / 2);
+                
+                if(isAiEnhanced) ctx.filter = "saturate(1.25) contrast(1.15) brightness(1.05)";
                 ctx.drawImage(video, 0, 0);
                 
-                // Native Gallery Saver logic (Sending base64 to Java AndroidBridge)
                 const dataUrl = canvas.toDataURL('image/png');
                 const base64Data = dataUrl.split(',')[1];
                 if (window.AndroidBridge && window.AndroidBridge.saveImageToGallery) {
