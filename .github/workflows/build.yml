@@ -1,0 +1,424 @@
+name: Ultimate Camera Build Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  create-and-build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Generate Android Project Structure
+      run: |
+        echo "Creating directories..."
+        mkdir -p app/src/main/java/com/ai/ultracamera
+        mkdir -p app/src/main/res/layout
+        mkdir -p app/src/main/res/values
+        mkdir -p app/src/main/assets
+
+    - name: Create settings.gradle
+      run: |
+        cat << 'EOF' > settings.gradle
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        rootProject.name = "AI Ultra Camera"
+        include ':app'
+        EOF
+
+    - name: Create Root build.gradle
+      run: |
+        cat << 'EOF' > build.gradle
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:8.1.1'
+            }
+        }
+        plugins {
+            id 'com.android.application' version '8.1.1' apply false
+        }
+        EOF
+
+    - name: Create App build.gradle
+      run: |
+        cat << 'EOF' > app/build.gradle
+        plugins {
+            id 'com.android.application'
+        }
+
+        android {
+            namespace 'com.ai.ultracamera'
+            compileSdk 34
+
+            defaultConfig {
+                applicationId "com.ai.ultracamera"
+                minSdk 21
+                targetSdk 34
+                versionCode 1
+                versionName "1.0"
+            }
+
+            buildTypes {
+                release {
+                    minifyEnabled false
+                    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                }
+            }
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+        }
+
+        dependencies {
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.android.material:material:1.9.0'
+        }
+        EOF
+
+    - name: Create AndroidManifest.xml
+      run: |
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/apk/res/android"
+            package="com.ai.ultracamera">
+
+            <uses-permission android:name="android.permission.INTERNET" />
+            <uses-permission android:name="android.permission.CAMERA" />
+            <uses-permission android:name="android.permission.RECORD_AUDIO" />
+            <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+            
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+            <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+            <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+            <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+            <uses-feature android:name="android.hardware.camera" android:required="true" />
+            <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+            <uses-feature android:name="android.hardware.microphone" android:required="true" />
+
+            <application
+                android:allowBackup="true"
+                android:label="AI ULTRA CAMERA"
+                android:supportsRtl="true"
+                android:theme="@style/Theme.AppCompat.NoActionBar"
+                android:hardwareAccelerated="true"
+                android:usesCleartextTraffic="true">
+                
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:screenOrientation="portrait"
+                    android:configChanges="orientation|screenSize|keyboardHidden">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+    - name: Create activity_main.xml Layout
+      run: |
+        cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <RelativeLayout xmlns:android="http://schemas.android.com/apk/apk/res/android"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <android.webkit.WebView
+                android:id="@+id/webview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </RelativeLayout>
+        EOF
+
+    - name: Create MainActivity.java
+      run: |
+        cat << 'EOF' > app/src/main/java/com/ai/ultracamera/MainActivity.java
+        package com.ai.ultracamera;
+
+        import android.Manifest;
+        import android.content.pm.PackageManager;
+        import android.os.Build;
+        import android.os.Bundle;
+        import android.webkit.PermissionRequest;
+        import android.webkit.WebChromeClient;
+        import android.webkit.WebSettings;
+        import android.webkit.WebView;
+        import android.webkit.WebViewClient;
+        import androidx.appcompat.app.AppCompatActivity;
+        import androidx.core.app.ActivityCompat;
+        import androidx.core.content.ContextCompat;
+        import java.util.ArrayList;
+        import java.util.List;
+
+        public class MainActivity extends AppCompatActivity {
+
+            private WebView myWebView;
+            private static final int PERMISSION_REQUEST_CODE = 1001;
+
+            @Override
+            protected void onCreate(Bundle savedInstanceState) {
+                super.onCreate(savedInstanceState);
+                setContentView(R.layout.activity_main);
+
+                myWebView = findViewById(R.id.webview);
+                WebSettings webSettings = myWebView.getSettings();
+                
+                webSettings.setJavaScriptEnabled(true);
+                webSettings.setDomStorageEnabled(true);
+                webSettings.setMediaPlaybackRequiresUserGesture(false);
+                webSettings.setAllowFileAccess(true);
+                webSettings.setAllowContentAccess(true);
+
+                myWebView.setWebViewClient(new WebViewClient());
+
+                myWebView.setWebChromeClient(new WebChromeClient() {
+                    @Override
+                    public void onPermissionRequest(final PermissionRequest request) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            request.grant(request.getResources());
+                        }
+                    }
+                });
+
+                myWebView.loadUrl("file:///android_asset/index.html");
+                checkAndRequestPermissions();
+            }
+
+            private void checkAndRequestPermissions() {
+                List<String> permissionsNeeded = new ArrayList<>();
+                permissionsNeeded.add(Manifest.permission.CAMERA);
+                permissionsNeeded.add(Manifest.permission.RECORD_AUDIO);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    permissionsNeeded.add(Manifest.permission.READ_MEDIA_IMAGES);
+                    permissionsNeeded.add(Manifest.permission.READ_MEDIA_VIDEO);
+                } else {
+                    permissionsNeeded.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                    permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+                }
+
+                List<String> listPermissionsAssign = new ArrayList<>();
+                for (String perm : permissionsNeeded) {
+                    if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
+                        listPermissionsAssign.add(perm);
+                    }
+                }
+
+                if (!listPermissionsAssign.isEmpty()) {
+                    ActivityCompat.requestPermissions(this, listPermissionsAssign.toArray(new String[0]), PERMISSION_REQUEST_CODE);
+                }
+            }
+        }
+        EOF
+
+    - name: Injection HTML Assets Camera App
+      run: |
+        cat << 'EOF' > app/src/main/assets/index.html
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <title>AI ULTRA CAMERA</title>
+            <style>
+                body { margin: 0; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+                #camera-container { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+                video { width: 100%; height: 100%; object-fit: cover; transition: transform 0.1s ease-out; }
+                .ai-enhanced { filter: saturate(1.2) contrast(1.1) brightness(1.1); }
+                .controls { position: absolute; bottom: 30px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 100; }
+                .shutter-group { display: flex; align-items: center; gap: 30px; }
+                .btn { background: rgba(255,255,255,0.2); border: 2px solid #fff; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+                #snap-btn { width: 70px; height: 70px; background: #fff; border: 2px solid #fff; border-radius: 50%; cursor: pointer; }
+                #record-btn { width: 60px; height: 60px; background: #ff0000; border: none; border-radius: 50%; cursor: pointer; }
+                .recording { animation: blink 1s infinite; }
+                @keyframes blink { 50% { opacity: 0.5; } }
+                .zoom-container { width: 80%; display: flex; align-items: center; gap: 10px; }
+                input[type=range] { flex-grow: 1; accent-color: #00ffcc; }
+                .settings-bar { position: absolute; top: 20px; width: 90%; display: flex; justify-content: space-between; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px; backdrop-filter: blur(5px); z-index: 200; }
+                select { background: transparent; color: #fff; border: 1px solid #555; border-radius: 5px; font-size: 12px; padding: 5px; }
+            </style>
+        </head>
+        <body>
+        <div id="camera-container">
+            <video id="video" autoplay playsinline muted></video>
+            <div class="settings-bar">
+                <select id="res-select">
+                    <option value="426,240">240p</option>
+                    <option value="1280,720" selected>720p (HD)</option>
+                    <option value="1920,1080">1080p (FHD)</option>
+                    <option value="3840,2160">4K (UHD)</option>
+                </select>
+                <select id="fps-select">
+                    <option value="15">15 FPS</option>
+                    <option value="30" selected>30 FPS</option>
+                    <option value="60">60 FPS</option>
+                </select>
+                <button id="ai-toggle" style="background:none; border:1px solid #00ffcc; color:#00ffcc; border-radius:5px; padding: 5px 10px; cursor:pointer;">AI OFF</button>
+            </div>
+            <div class="controls">
+                <div id="zoom-label">Zoom: 1.0x</div>
+                <div class="zoom-container">
+                    <span>1x</span>
+                    <input type="range" id="zoom-slider" min="1" max="8" step="0.1" value="1">
+                    <span>8x</span>
+                </div>
+                <div class="shutter-group">
+                    <button id="record-btn" title="Record Video"></button>
+                    <button id="snap-btn" title="Take Photo"></button>
+                </div>
+            </div>
+        </div>
+        <script>
+            const video = document.getElementById('video');
+            const zoomSlider = document.getElementById('zoom-slider');
+            const zoomLabel = document.getElementById('zoom-label');
+            const resSelect = document.getElementById('res-select');
+            const fpsSelect = document.getElementById('fps-select');
+            const aiToggle = document.getElementById('ai-toggle');
+            const snapBtn = document.getElementById('snap-btn');
+            const recordBtn = document.getElementById('record-btn');
+            let mediaRecorder;
+            let recordedChunks = [];
+            let isAiEnhanced = false;
+
+            async function initCamera() {
+                if (window.stream) { window.stream.getTracks().forEach(track => track.stop()); }
+                const [width, height] = resSelect.value.split(',').map(Number);
+                const fps = parseInt(fpsSelect.value);
+                const constraints = {
+                    video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: fps }, facingMode: "environment" },
+                    audio: true
+                };
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    window.stream = stream;
+                    video.srcObject = stream;
+                    const track = stream.getVideoTracks()[0];
+                    setTimeout(() => {
+                        const capabilities = track.getCapabilities();
+                        if (capabilities.zoom) {
+                            zoomSlider.min = capabilities.zoom.min || 1;
+                            zoomSlider.max = capabilities.zoom.max || 8;
+                            zoomSlider.step = capabilities.zoom.step || 0.1;
+                        }
+                    }, 500);
+                } catch (err) {
+                    alert("Hardware error structure failed.");
+                }
+            }
+
+            zoomSlider.oninput = async () => {
+                const val = zoomSlider.value;
+                zoomLabel.innerText = `Zoom: ${val}x`;
+                const track = window.stream?.getVideoTracks()[0];
+                if (!track) return;
+                const capabilities = track.getCapabilities();
+                if (capabilities.zoom) {
+                    try { await track.applyConstraints({ advanced: [{ zoom: val }] }); } catch (e) {}
+                } else {
+                    video.style.transform = `scale(${1 + (val * 0.1)})`;
+                }
+            };
+
+            aiToggle.onclick = () => {
+                isAiEnhanced = !isAiEnhanced;
+                video.classList.toggle('ai-enhanced');
+                aiToggle.innerText = isAiEnhanced ? "AI ON" : "AI OFF";
+                aiToggle.style.color = isAiEnhanced ? "#fff" : "#00ffcc";
+                aiToggle.style.backgroundColor = isAiEnhanced ? "#00ffcc" : "transparent";
+            };
+
+            snapBtn.onclick = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                if(isAiEnhanced) ctx.filter = "saturate(1.2) contrast(1.1) brightness(1.1)";
+                ctx.drawImage(video, 0, 0);
+                const link = document.createElement('a');
+                link.download = `Photo_${Date.now()}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            };
+
+            recordBtn.onclick = () => {
+                if (mediaRecorder && mediaRecorder.state === "recording") {
+                    mediaRecorder.stop();
+                    recordBtn.classList.remove('recording');
+                    resSelect.disabled = false;
+                    fpsSelect.disabled = false;
+                } else {
+                    recordedChunks = [];
+                    resSelect.disabled = true;
+                    fpsSelect.disabled = true;
+                    mediaRecorder = new MediaRecorder(window.stream);
+                    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(recordedChunks, { type: "video/webm" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Video_${Date.now()}.webm`;
+                        a.click();
+                    };
+                    mediaRecorder.start();
+                    recordBtn.classList.add('recording');
+                }
+            };
+
+            resSelect.onchange = initCamera;
+            fpsSelect.onchange = initCamera;
+            window.onload = initCamera;
+        </script>
+        </body>
+        </html>
+        EOF
+
+    - name: Initialize Android SDK Environment Gradle Builder
+      run: |
+        yes | sdkmanager --licenses || true
+        touch local.properties
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        chmod +x gradlew || true
+        # Android Wrapper automatic generator stub setup
+        gradle wrapper --gradle-version 8.2 --distribution-type bin
+
+    - name: Build Debug App Build Bundle APK
+      run: ./gradlew assembleDebug
+
+    - name: Publish Compiled Live App Binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: AI-Ultra-Camera-Engine
+        path: app/build/outputs/apk/debug/app-debug.apk
