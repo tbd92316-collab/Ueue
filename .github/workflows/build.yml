@@ -25,25 +25,26 @@ jobs:
         echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
 
-    - name: Generate Project Structure Files
+    - name: Generate Project Directories
       run: |
         mkdir -p app/src/main/java/com/ai/ultracamera
         mkdir -p app/src/main/res/layout
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/assets
 
-    - name: Create gradle.properties (Fix AndroidX Error)
+    - name: Inject Project Configuration Files via Python
+      shell: python
       run: |
-        cat << 'PROP_EOF' > gradle.properties
-        android.useAndroidX=true
-        android.enableJetifier=true
-        org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-        PROP_EOF
+        import os
 
-    - name: Create Base Project Build Setup
-      run: |
-        cat << 'SETTINGS_EOF' > settings.gradle
-        pluginManagement {
+        # 1. Create gradle.properties
+        with open("gradle.properties", "w", encoding="utf-8") as f:
+            f.write("android.useAndroidX=true\n")
+            f.write("android.enableJetifier=true\n")
+            f.write("org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\n")
+
+        # 2. Create settings.gradle
+        settings_content = """pluginManagement {
             repositories {
                 google()
                 mavenCentral()
@@ -59,12 +60,12 @@ jobs:
         }
         rootProject.name = "AI Ultra Camera"
         include ':app'
-        SETTINGS_EOF
+        """
+        with open("settings.gradle", "w", encoding="utf-8") as f:
+            f.write(settings_content)
 
-    - name: Create Root build.gradle
-      run: |
-        cat << 'BUILD_EOF' > build.gradle
-        buildscript {
+        # 3. Create Root build.gradle
+        root_gradle = """buildscript {
             repositories {
                 google()
                 mavenCentral()
@@ -76,19 +77,17 @@ jobs:
         plugins {
             id 'com.android.application' version '8.1.4' apply false
         }
-        BUILD_EOF
+        """
+        with open("build.gradle", "w", encoding="utf-8") as f:
+            f.write(root_gradle)
 
-    - name: Create App build.gradle
-      run: |
-        cat << 'APP_EOF' > app/build.gradle
-        plugins {
+        # 4. Create App build.gradle
+        app_gradle = """plugins {
             id 'com.android.application'
         }
-
         android {
             namespace 'com.ai.ultracamera'
             compileSdk 33
-
             defaultConfig {
                 applicationId "com.ai.ultracamera"
                 minSdk 21
@@ -96,7 +95,6 @@ jobs:
                 versionCode 1
                 versionName "1.0"
             }
-
             buildTypes {
                 release {
                     minifyEnabled false
@@ -108,17 +106,16 @@ jobs:
                 targetCompatibility JavaVersion.VERSION_17
             }
         }
-
         dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
             implementation 'com.google.android.material:material:1.8.0'
         }
-        APP_EOF
+        """
+        with open("app/build.gradle", "w", encoding="utf-8") as f:
+            f.write(app_gradle)
 
-    - name: Create AndroidManifest.xml
-      run: |
-        cat << 'XML_EOF' > app/src/main/AndroidManifest.xml
-        <?xml version="1.0" encoding="utf-8"?>
+        # 5. Create Pure AndroidManifest.xml (Zero String Tampering)
+        manifest_content = """<?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/apk/res/android"
             package="com.ai.ultracamera">
 
@@ -157,16 +154,17 @@ jobs:
                 </activity>
             </application>
         </manifest>
-        XML_EOF
+        """
+        with open("app/src/main/AndroidManifest.xml", "w", encoding="utf-8") as f:
+            f.write(manifest_content.strip())
 
-    - name: Create activity_main.xml Layout
+    - name: Create Layout and Activity Files
       run: |
         cat << 'LAYOUT_EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <RelativeLayout xmlns:android="http://schemas.android.com/apk/apk/res/android"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
-
             <android.webkit.WebView
                 android:id="@+id/webview"
                 android:layout_width="match_parent"
@@ -174,8 +172,6 @@ jobs:
         </RelativeLayout>
         LAYOUT_EOF
 
-    - name: Create MainActivity.java
-      run: |
         cat << 'JAVA_EOF' > app/src/main/java/com/ai/ultracamera/MainActivity.java
         package com.ai.ultracamera;
 
@@ -195,7 +191,6 @@ jobs:
         import java.util.List;
 
         public class MainActivity extends AppCompatActivity {
-
             private WebView myWebView;
             private static final int PERMISSION_REQUEST_CODE = 1001;
 
@@ -206,7 +201,6 @@ jobs:
 
                 myWebView = findViewById(R.id.webview);
                 WebSettings webSettings = myWebView.getSettings();
-                
                 webSettings.setJavaScriptEnabled(true);
                 webSettings.setDomStorageEnabled(true);
                 webSettings.setMediaPlaybackRequiresUserGesture(false);
@@ -214,7 +208,6 @@ jobs:
                 webSettings.setAllowContentAccess(true);
 
                 myWebView.setWebViewClient(new WebViewClient());
-
                 myWebView.setWebChromeClient(new WebChromeClient() {
                     @Override
                     public void onPermissionRequest(final PermissionRequest request) {
@@ -247,7 +240,6 @@ jobs:
                         listPermissionsAssign.add(perm);
                     }
                 }
-
                 if (!listPermissionsAssign.isEmpty()) {
                     ActivityCompat.requestPermissions(this, listPermissionsAssign.toArray(new String[0]), PERMISSION_REQUEST_CODE);
                 }
@@ -271,7 +263,6 @@ jobs:
                 .ai-enhanced { filter: saturate(1.2) contrast(1.1) brightness(1.1); }
                 .controls { position: absolute; bottom: 30px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 100; }
                 .shutter-group { display: flex; align-items: center; gap: 30px; }
-                .btn { background: rgba(255,255,255,0.2); border: 2px solid #fff; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; }
                 #snap-btn { width: 70px; height: 70px; background: #fff; border: 2px solid #fff; border-radius: 50%; cursor: pointer; }
                 #record-btn { width: 60px; height: 60px; background: #ff0000; border: none; border-radius: 50%; cursor: pointer; }
                 .recording { animation: blink 1s infinite; }
