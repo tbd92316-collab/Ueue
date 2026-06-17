@@ -32,6 +32,14 @@ jobs:
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/assets
 
+    - name: Create gradle.properties (Fix AndroidX Error)
+      run: |
+        cat << 'EOF' > gradle.properties
+        android.useAndroidX=true
+        android.enableJetifier=true
+        org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+        EOF
+
     - name: Create Base Project Build Setup
       run: |
         cat << 'EOF' > settings.gradle
