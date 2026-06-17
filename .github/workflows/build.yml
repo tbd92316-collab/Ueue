@@ -62,11 +62,11 @@ jobs:
                 mavenCentral()
             }
             dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.1'
+                classpath 'com.android.tools.build:gradle:8.0.2'
             }
         }
         plugins {
-            id 'com.android.application' version '8.1.1' apply false
+            id 'com.android.application' version '8.0.2' apply false
         }
         EOF
 
@@ -79,12 +79,12 @@ jobs:
 
         android {
             namespace 'com.ai.ultracamera'
-            compileSdk 34
+            compileSdk 33
 
             defaultConfig {
                 applicationId "com.ai.ultracamera"
                 minSdk 21
-                targetSdk 34
+                targetSdk 33
                 versionCode 1
                 versionName "1.0"
             }
@@ -103,7 +103,7 @@ jobs:
 
         dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.9.0'
+            implementation 'com.google.android.material:material:1.8.0'
         }
         EOF
 
@@ -413,7 +413,7 @@ jobs:
     - name: Setup Gradle Environment Wrapper
       uses: gradle/actions/setup-gradle@v3
       with:
-        gradle-version: 8.2
+        gradle-version: 8.0
 
     - name: Build Android Debug APK
       run: gradle assembleDebug
